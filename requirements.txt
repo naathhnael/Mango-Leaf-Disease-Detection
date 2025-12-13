@@ -6,10 +6,11 @@ pillow
 requests
 flask-cors
 
-# Torch CPU (kompatibel Python 3.12)
-torch==2.7.0+cpu
+# Torch CPU (Python 3.12 compatible)
+torch==2.8.0+cpu
 torchvision==0.23.0+cpu
 --extra-index-url https://download.pytorch.org/whl/cpu
 # Jika ingin menggunakan Torch dengan dukungan CUDA, gunakan baris berikut sebagai gantinya:
 # torch==2.2.1+cu121
+
 
