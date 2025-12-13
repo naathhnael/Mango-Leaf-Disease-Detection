@@ -2,20 +2,21 @@ flask
 gunicorn
 ultralytics>=8.2.0
 
-# OpenCV aman untuk server / cloud (tanpa GUI)
-opencv-contrib-python-headless==4.8.1.78
+# OpenCV versi aman untuk Python 3.13 + cloud environment
+opencv-python-headless==4.5.5.64
 
 pillow
 numpy==2.1.3
 requests
 flask-cors
 
-# Torch CPU for Python 3.12/3.13
+# Torch CPU
 torch==2.8.0+cpu
 torchvision==0.23.0+cpu
 --extra-index-url https://download.pytorch.org/whl/cpu
 # Jika ingin menggunakan Torch dengan dukungan CUDA, gunakan baris berikut sebagai gantinya:
 # torch==2.2.1+cu121
+
 
 
 
