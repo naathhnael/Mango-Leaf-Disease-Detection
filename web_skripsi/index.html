@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Deteksi Penyakit Daun Mangga</title>
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <style>
+    body { background: #f8f9fa; }
+    .preview-img { max-width: 100%; border-radius: 10px; display: none; transition: opacity 0.4s ease; }
+    .video-frame { width: 100%; border-radius: 10px; }
+    .result-card { animation: fadeIn 0.5s ease; }
+    #loadingSpinner { display: none; }
+    #previewText { color: #6c757d; font-style: italic; text-align: center; }
+    @keyframes fadeIn { from {opacity: 0;} to {opacity: 1;} }
+  </style>
+</head>
+
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-success">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="#">Deteksi Daun Mangga</a>
+    </div>
+  </nav>
+
+  <div class="container my-5">
+    <div class="card shadow p-4">
+
+      <h2 class="mb-3 text-center text-success">Sistem Deteksi Penyakit Daun Mangga</h2>
+      <p class="text-center text-muted">
+        Website ini menggunakan model <strong>YOLOv8</strong> untuk mendeteksi penyakit pada daun mangga.
+        Anda dapat mengunggah gambar atau mengambil langsung melalui kamera perangkat Anda.
+      </p>
+      <hr>
+
+      <div class="row">
+
+        <!-- Upload -->
+        <div class="col-md-6 mb-4">
+          <h5><i class="fa-solid fa-upload me-2"></i>Unggah Gambar</h5>
+          <form id="uploadForm">
+            <input class="form-control mb-3" type="file" id="fileInput" accept="image/*">
+            <button type="submit" class="btn btn-success w-100">Deteksi Gambar</button>
+          </form>
+
+          <div class="mt-4">
+            <h5><i class="fa-solid fa-camera me-2"></i>Ambil dari Kamera</h5>
+            <video id="video" class="video-frame border" autoplay playsinline></video>
+            <canvas id="canvas" style="display:none;"></canvas>
+
+            <div class="mt-2 d-flex gap-2">
+              <button id="captureBtn" class="btn btn-outline-success flex-fill">Ambil Foto</button>
+              <button id="detectBtn" class="btn btn-success flex-fill">Deteksi Foto</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Preview dan Hasil -->
+        <div class="col-md-6">
+          <h5><i class="fa-solid fa-image me-2"></i>Preview Gambar</h5>
+          <p id="previewText">Silakan upload atau ambil gambar untuk menampilkan preview.</p>
+          <img id="previewImg" class="preview-img border mb-3" src="" alt="Preview gambar">
+
+          <div class="text-center" id="loadingSpinner">
+            <div class="spinner-border text-success" role="status"></div>
+            <p class="text-muted mt-2">Sedang mendeteksi...</p>
+          </div>
+
+          <div id="resultArea"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <footer class="text-center text-muted py-3">
+    <small>© 2025 Sistem Deteksi Penyakit Daun Mangga — Dibangun dengan Bootstrap & YOLOv8</small>
+  </footer>
+
+
+  <!-- SCRIPT -->
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const previewImg = document.getElementById('previewImg');
+    const previewText = document.getElementById('previewText');
+    const captureBtn = document.getElementById('captureBtn');
+    const detectBtn = document.getElementById('detectBtn');
+    const fileInput = document.getElementById('fileInput');
+    const uploadForm = document.getElementById('uploadForm');
+    const resultArea = document.getElementById('resultArea');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+
+    // Aktifkan kamera
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => video.srcObject = stream)
+        .catch(err => console.log('Kamera tidak dapat diakses:', err));
+    }
+
+    // Preview file
+    fileInput.addEventListener("change", function () {
+      const file = this.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          previewImg.src = e.target.result;
+          previewImg.style.display = "block";
+          previewText.style.display = "none";
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // Ambil foto
+    captureBtn.addEventListener('click', () => {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      previewImg.src = canvas.toDataURL('image/jpeg');
+      previewImg.style.display = "block";
+      previewText.style.display = "none";
+    });
+
+    // Upload gambar
+    uploadForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      const file = fileInput.files[0];
+      if (!file) return alert('Pilih gambar terlebih dahulu.');
+      await sendImage(file);
+    });
+
+    // Deteksi dari kamera
+    detectBtn.addEventListener('click', async () => {
+      if (!previewImg.src) return alert('Ambil foto dulu sebelum deteksi.');
+      const blob = await (await fetch(previewImg.src)).blob();
+      await sendImage(blob);
+    });
+
+    // Kirim gambar ke Flask
+    async function sendImage(fileBlob) {
+      resultArea.innerHTML = '';
+      loadingSpinner.style.display = 'block';
+
+      const formData = new FormData();
+      formData.append('image', fileBlob, 'upload.jpg');
+
+      try {
+        const res = await fetch('/detect', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        loadingSpinner.style.display = 'none';
+
+        let html = `<div class='card result-card shadow-sm p-3'>`;
+
+        // Jika error fatal
+        if (data.error) {
+          html += `
+            <div class="alert alert-danger">
+              <i class="fa-solid fa-circle-xmark me-2"></i>${data.error}
+            </div>`;
+        }
+
+        // Jika tidak ada prediksi atau confidence rendah
+        else if (data.message && (!data.predictions || data.predictions.length === 0)) {
+          const alertClass =
+            data.type === "error" ? "alert-danger" :
+            data.type === "warning" ? "alert-warning" :
+            "alert-info";
+
+          const icon =
+            data.icon ? `<i class="fa-solid ${data.icon} me-2"></i>` : "";
+
+          html += `
+            <div class="alert ${alertClass}">
+              ${icon}${data.message}
+            </div>`;
+        }
+
+        // Jika ada hasil deteksi
+        else if (data.predictions.length > 0) {
+          html += `
+            <img src='${data.image_url}?t=${Date.now()}' class='img-fluid rounded mb-3'>
+            <h5 class='text-success'>
+              <i class="fa-solid fa-circle-check me-2"></i>Hasil Deteksi
+            </h5>
+          `;
+
+          data.predictions.forEach(p => {
+            html += `
+              <div class='mt-2'>
+                <h6><b>${p.name}</b> (${(p.confidence * 100).toFixed(1)}%)</h6>
+                <p><b>Penyebab:</b> ${p.cause}</p>
+                <p><b>Perawatan:</b> ${p.treatment}</p>
+              </div>`;
+          });
+        }
+
+        html += `</div>`;
+        resultArea.innerHTML = html;
+
+      } catch (err) {
+        loadingSpinner.style.display = 'none';
+
+        resultArea.innerHTML = `
+          <div class='alert alert-danger'>
+            <i class="fa-solid fa-circle-xmark me-2"></i>Terjadi kesalahan koneksi ke server Flask.
+          </div>`;
+
+        console.error("Error:", err);
+      }
+    }
+  </script>
+</body>
+</html>
